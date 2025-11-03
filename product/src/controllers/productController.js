@@ -7,133 +7,127 @@ const uuid = require('uuid');
  */
 class ProductController {
 
-  constructor() {1
-    this.createOrder = this.createOrder.bind(this);
-    this.getOrderStatus = this.getOrderStatus.bind(this);
-    this.ordersMap = new Map();
-  }
-
-  // Lấy sản phẩm bằng id sản phẩm
-  async getProductId (req, res, next) {
-    const { Id } = req.params;
-    const product = await Product.findById(Id);
-    if (!product) { 
-      return res.status(404).json({ message: "product not found" });
-      }
-      res.status(200).json(product); 
-  }
-
-  async getOrderStatus(req, res, next) {
-      const { orderId } = req.params;
-      const order = this.ordersMap.get(orderId);
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
-      res.status(200).json(order); 
-  }
-  
-  async createProduct(req, res, next) {
-    try {
-      const token = req.headers.authorization;
-      if (!token) { //tokensai
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const product = new Product(req.body);
-
-      const validationError = product.validateSync();
-      if (validationError) {  
-        return res.status(400).json({ message: validationError.message });
-      }
-
-      await product.save({ timeout: 30000 });
-
-      res.status(201).json(product);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Server error" });
+    constructor() {
+        1
+        this.createOrder = this.createOrder.bind(this);
+        this.getOrderStatus = this.getOrderStatus.bind(this);
+        this.ordersMap = new Map();
     }
-  }
 
-  async createOrder(req, res, next) {
-    try {
-      const token = req.headers.authorization;
-      if (!token) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-  
-      const { ids } = req.body;
-      const products = await Product.find({ _id: { $in: ids } });
-  
-      const orderId = uuid.v4(); // Generate a unique order ID
-      this.ordersMap.set(orderId, { 
-        status: "pending", 
-        products, 
-        username: req.user.username
-      });
-  
-      await messageBroker.publishMessage("orders", {
-        products,
-        username: req.user.username,
-        orderId, // include the order ID in the message to orders queue
-      });
 
-      messageBroker.consumeMessage("products", (data) => {
-        const orderData = JSON.parse(JSON.stringify(data));
-        const { orderId } = orderData;
+
+
+    async getOrderStatus(req, res, next) {
+        const { orderId } = req.params;
         const order = this.ordersMap.get(orderId);
-        if (order) {
-          // update the order in the map
-          this.ordersMap.set(orderId, { ...order, ...orderData, status: 'completed' });
-          console.log("Updated order:", order);
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
         }
-      });
-  
-      // Long polling until order is completed
-      let order = this.ordersMap.get(orderId);
-      while (order.status !== 'completed') {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // wait for 1 second before checking status again
-        order = this.ordersMap.get(orderId);
-      }
-  
-      // Once the order is marked as completed, return the complete order details
-      return res.status(201).json(order);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Server error" });
+        res.status(200).json(order);
     }
-  }
 
-  async getProducts(req, res, next) {
-    try {
-      const token = req.headers.authorization;
-      if (!token) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const products = await Product.find({});
+    async createProduct(req, res, next) {
+        try {
+            const token = req.headers.authorization;
+            if (!token) { //tokensai
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+            const product = new Product(req.body);
 
-      res.status(200).json(products);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Server error" });
+            const validationError = product.validateSync();
+            if (validationError) {
+                return res.status(400).json({ message: validationError.message });
+            }
+
+            await product.save({ timeout: 30000 });
+
+            res.status(201).json(product);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: "Server error" });
+        }
     }
-  }
 
-  async getProductId(req, res, next) {
-    try {
-      const token = req.headers.authorization;
-      if(!token){
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const { id } = req.params;
-      const product = await Product.findById(id);
-      if (!product) {
-        return res.status(404).json({ message: "Product not found" });
-      }
-      res.status(200).json(product);
-    } catch (error) { 
-      res.status(500).json({ message: "Server error" });
+    async createOrder(req, res, next) {
+        try {
+            const token = req.headers.authorization;
+            if (!token) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            const { ids } = req.body;
+            const products = await Product.find({ _id: { $in: ids } });
+
+            const orderId = uuid.v4(); // Generate a unique order ID
+            this.ordersMap.set(orderId, {
+                status: "pending",
+                products,
+                username: req.user.username
+            });
+
+            await messageBroker.publishMessage("orders", {
+                products,
+                username: req.user.username,
+                orderId, // include the order ID in the message to orders queue
+            });
+
+            messageBroker.consumeMessage("products", (data) => {
+                const orderData = JSON.parse(JSON.stringify(data));
+                const { orderId } = orderData;
+                const order = this.ordersMap.get(orderId);
+                if (order) {
+                    // update the order in the map
+                    this.ordersMap.set(orderId, {...order, ...orderData, status: 'completed' });
+                    console.log("Updated order:", order);
+                }
+            });
+
+            // Long polling until order is completed
+            let order = this.ordersMap.get(orderId);
+            while (order.status !== 'completed') {
+                await new Promise(resolve => setTimeout(resolve, 1000)); // wait for 1 second before checking status again
+                order = this.ordersMap.get(orderId);
+            }
+
+            // Once the order is marked as completed, return the complete order details
+            return res.status(201).json(order);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: "Server error" });
+        }
     }
-  }
+
+    async getProducts(req, res, next) {
+        try {
+            const token = req.headers.authorization;
+            if (!token) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+            const products = await Product.find({});
+
+            res.status(200).json(products);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: "Server error" });
+        }
+    }
+
+    async getProductId(req, res, next) {
+        try {
+            const token = req.headers.authorization;
+            if (!token) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+            const { id } = req.params;
+            const product = await Product.findById(id);
+            if (!product) {
+                return res.status(404).json({ message: "Product not found" });
+            }
+            res.status(200).json(product);
+        } catch (error) {
+            res.status(500).json({ message: "Server error" });
+        }
+    }
 }
 
 module.exports = ProductController;

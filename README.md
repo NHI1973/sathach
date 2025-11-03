@@ -150,7 +150,7 @@ Tại đây có thể xem các exchange, queue, và message giữa các service.
 
 ### 5 👨‍💻 Tác giả
 
-22713701 - Nguyễn Phú Bảo
+22002265 - Lê Thị Yến Nhi
 
-📧 Email: phubao12as@gmail.com
+📧 Email: yenjj2025@gmail.com
 💼 Fullstack Developer (Node.js, Docker, Microservices)
