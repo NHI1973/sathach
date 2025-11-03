@@ -14,9 +14,6 @@ class ProductController {
         this.ordersMap = new Map();
     }
 
-
-
-
     async getOrderStatus(req, res, next) {
         const { orderId } = req.params;
         const order = this.ordersMap.get(orderId);
@@ -25,6 +22,8 @@ class ProductController {
         }
         res.status(200).json(order);
     }
+
+    // viết hàm dưới đây
 
     async createProduct(req, res, next) {
         try {
